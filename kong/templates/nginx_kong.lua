@@ -53,7 +53,7 @@ init_worker_by_lua_block {
 
 proxy_next_upstream_tries 999;
 
-> if proxy or ssl then
+> if #proxy_listeners > 0 then
 upstream kong_upstream {
     server 0.0.0.1;
     balancer_by_lua_block {
@@ -64,8 +64,9 @@ upstream kong_upstream {
 
 server {
     server_name kong;
-> if proxy then
-    listen ${{PROXY_LISTEN}}${{PROXY_PROTOCOL}};
+> for i = 1, #proxy_listeners do
+>   if proxy_listeners[i].ssl then _ssl_in_use = true end
+    listen $(proxy_listeners[i].listener) ${{PROXY_PROTOCOL}};
 > end
     error_page 400 404 408 411 412 413 414 417 /kong_error_handler;
     error_page 500 502 503 504 /kong_error_handler;
@@ -75,8 +76,7 @@ server {
 
     client_body_buffer_size ${{CLIENT_BODY_BUFFER_SIZE}};
 
-> if ssl then
-    listen ${{PROXY_LISTEN_SSL}} ssl${{HTTP2}}${{PROXY_PROTOCOL}};
+> if _ssl_in_use then
     ssl_certificate ${{SSL_CERT}};
     ssl_certificate_key ${{SSL_CERT_KEY}};
     ssl_protocols TLSv1.1 TLSv1.2;
@@ -156,11 +156,12 @@ server {
 }
 > end
 
-> if admin or admin_ssl then
+> if #admin_listeners > 0 then
 server {
     server_name kong_admin;
-> if admin then
-    listen ${{ADMIN_LISTEN}};
+> for i = 1, #admin_listeners do
+>   if admin_listeners[i].ssl then _admin_ssl_in_use = true end
+    listen $(admin_listeners[i].listener);
 > end
 
     access_log ${{ADMIN_ACCESS_LOG}};
@@ -169,8 +170,7 @@ server {
     client_max_body_size 10m;
     client_body_buffer_size 10m;
 
-> if admin_ssl then
-    listen ${{ADMIN_LISTEN_SSL}} ssl${{ADMIN_HTTP2}};
+> if _admin_ssl_in_use then
     ssl_certificate ${{ADMIN_SSL_CERT}};
     ssl_certificate_key ${{ADMIN_SSL_CERT_KEY}};
     ssl_protocols TLSv1.1 TLSv1.2;
