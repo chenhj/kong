@@ -7,6 +7,8 @@ describe("Balancer", function()
 
 
   setup(function()
+    stub(ngx, "log")
+
     balancer = require "kong.core.balancer"
     singletons = require "kong.singletons"
     singletons.worker_events = require "resty.worker.events"
